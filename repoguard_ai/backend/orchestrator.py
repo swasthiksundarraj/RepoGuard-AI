@@ -1,3 +1,4 @@
+
 """
 Orchestrator
 -------------
@@ -26,6 +27,8 @@ from agents.context_retrieval_agent import ContextRetrievalAgent
 from agents.security_agent import SecurityAssessmentAgent
 from agents.semantic_review_agent import SemanticReviewAgent
 from agents.static_analysis_agent import StaticAnalysisAgent
+from agents.taint_analysis_agent import TaintAnalysisAgent
+from code_cleaner import CodeCleaner
 from models import AgentTiming, Finding, Metrics, SourceFile
 from spec_checker import SpecificationChecker
 
@@ -34,12 +37,15 @@ class Orchestrator:
     """Coordinates all agents and produces the unified review report."""
 
     def __init__(self, files: List[SourceFile], spec: dict, alpha: float = 0.7,
-                 beta: float = 0.3, use_llm: bool = False):
+                 beta: float = 0.3, use_llm: bool = False, llm_provider: str = "offline",
+                 ollama_model: str = "deepseek-coder"):
         self.files = files
         self.spec = spec
         self.alpha = alpha
         self.beta = beta
         self.use_llm = use_llm
+        self.llm_provider = llm_provider
+        self.ollama_model = ollama_model
         self.timings: List[AgentTiming] = []
 
     def _timed(self, agent_name: str, fn, *args, **kwargs):
@@ -109,15 +115,26 @@ class Orchestrator:
         security_agent = SecurityAssessmentAgent()
         security_findings = self._timed("security_assessment", security_agent.analyze, self.files)
 
+        taint_agent = TaintAnalysisAgent()
+        taint_findings = self._timed("taint_analysis", taint_agent.analyze, self.files)
+
         spec_checker = SpecificationChecker(self.spec)
         spec_findings = self._timed("specification_checker", spec_checker.check_naming, self.files)
 
-        all_findings = static_findings + semantic_findings + security_findings + spec_findings
+        all_findings = static_findings + semantic_findings + security_findings + taint_findings + spec_findings
         spec_checker.ground(all_findings)
         raw_count = len(all_findings)
 
         deduped = self._timed("orchestrator_dedup_rank", self._deduplicate, all_findings)
         ranked = self._rank(deduped)
+
+        code_cleaner = CodeCleaner(
+            use_llm=self.use_llm,
+            spec=self.spec,
+            llm_provider=self.llm_provider,
+            ollama_model=self.ollama_model,
+        )
+        cleaned_files = self._timed("code_cleaner", code_cleaner.clean_files, self.files, ranked)
 
         coord_overhead_ms = (time.perf_counter() - pipeline_start) * 1000
         metrics = self._compute_metrics(raw_count, ranked, coord_overhead_ms)
@@ -130,4 +147,5 @@ class Orchestrator:
             },
             "metrics": metrics,
             "spec": self.spec,
+            "cleaned_files": cleaned_files,
         }

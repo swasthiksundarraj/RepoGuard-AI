@@ -75,6 +75,8 @@ def analyze(request: AnalyzeRequest):
         alpha=request.alpha,
         beta=request.beta,
         use_llm=request.use_llm,
+        llm_provider=request.llm_provider,
+        ollama_model=request.ollama_model,
     )
     result = orchestrator.run()
     return AnalyzeResponse(**result)

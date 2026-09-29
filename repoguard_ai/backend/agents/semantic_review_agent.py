@@ -30,6 +30,7 @@ import re
 import uuid
 from typing import List
 
+from language_support import is_supported_source, language_for
 from models import AgentName, ContextSnippet, Finding, Severity, SourceFile
 
 MAGIC_NUMBER_RE = re.compile(r"(?<![\w.])(?!0\b|1\b)-?\d{2,}(?![\w])")
@@ -61,7 +62,7 @@ class SemanticReviewAgent:
     # ---------------------------------------------------------- heuristic
     def _heuristic_review(self, source: SourceFile, context: List[ContextSnippet]) -> List[Finding]:
         findings: List[Finding] = []
-        if not source.path.endswith(".py"):
+        if not is_supported_source(source.path):
             return findings
         lines = source.content.splitlines()
 
@@ -88,6 +89,17 @@ class SemanticReviewAgent:
                     Severity.INFO, 0.4,
                     "Extract the value into a well-named constant.",
                 ))
+
+        if language_for(source.path) != "python":
+            if context:
+                related = ", ".join(c.file for c in context[:2])
+                findings.append(self._make(
+                    source.path, 1, "SR-CTX", "Related repository context",
+                    f"This file shares significant vocabulary with {related}; changes here may need corresponding updates there.",
+                    Severity.INFO, 0.4,
+                    "Cross-check related files before merging this change.",
+                ))
+            return findings
 
         try:
             tree = ast.parse(source.content, filename=source.path)

@@ -12,6 +12,7 @@ installed, keeping the reference implementation reproducible.
 """
 from __future__ import annotations
 
+import ast
 import math
 import re
 from collections import Counter
@@ -26,8 +27,20 @@ def _tokenize(text: str) -> List[str]:
     return [t.lower() for t in TOKEN_RE.findall(text)]
 
 
+def _extract_symbols(code: str) -> List[str]:
+    try:
+        tree = ast.parse(code)
+        symbols = []
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                symbols.append(node.name)
+        return symbols
+    except Exception:
+        return []
+
+
 class ContextRetrievalAgent:
-    """Indexes a repository and retrieves relevant context per file."""
+    """Indexes a repository, extracts symbol graphs, and retrieves relevant context per file."""
 
     name = "context_retrieval"
 
@@ -35,6 +48,9 @@ class ContextRetrievalAgent:
         self.files = files
         self._doc_tokens: Dict[str, List[str]] = {
             f.path: _tokenize(f.content) for f in files
+        }
+        self._symbols: Dict[str, List[str]] = {
+            f.path: _extract_symbols(f.content) for f in files
         }
         self._tf: Dict[str, Counter] = {
             path: Counter(tokens) for path, tokens in self._doc_tokens.items()
@@ -65,25 +81,38 @@ class ContextRetrievalAgent:
             return 0.0
         return dot / (norm_a * norm_b)
 
-    def index(self) -> Dict[str, int]:
-        """Return a small summary of the built index (for the UI/report)."""
+    def index(self) -> Dict[str, any]:
+        """Return a summary of the built index including AST symbol graph."""
+        total_symbols = sum(len(s) for s in self._symbols.values())
         return {
             "files_indexed": len(self.files),
             "vocabulary_size": len(self._df),
+            "symbols_indexed": total_symbols,
+            "symbols_per_file": self._symbols,
         }
 
     def retrieve(self, target_path: str, top_k: int = 3) -> List[ContextSnippet]:
         """Retrieve the top_k most relevant OTHER files for target_path."""
         target_vec = self._vector(target_path)
+        target_tokens = set(self._doc_tokens.get(target_path, []))
         scored = []
         for f in self.files:
             if f.path == target_path:
                 continue
-            score = self._cosine(target_vec, self._vector(f.path))
-            if score > 0:
+            cos_score = self._cosine(target_vec, self._vector(f.path))
+            
+            # Boost score if target file references symbols declared in file f
+            f_symbols = set(self._symbols.get(f.path, []))
+            symbol_overlap = target_tokens & {s.lower() for s in f_symbols}
+            boost = 0.15 * len(symbol_overlap) if symbol_overlap else 0.0
+
+            final_score = min(1.0, cos_score + boost)
+            if final_score > 0:
                 preview = f.content.strip().splitlines()
                 preview_text = " ".join(preview[:3])[:160]
-                scored.append(ContextSnippet(file=f.path, score=round(score, 4), preview=preview_text))
+                if symbol_overlap:
+                    preview_text = f"[Symbols: {', '.join(list(symbol_overlap)[:3])}] " + preview_text
+                scored.append(ContextSnippet(file=f.path, score=round(final_score, 4), preview=preview_text))
         scored.sort(key=lambda s: s.score, reverse=True)
         return scored[:top_k]
 

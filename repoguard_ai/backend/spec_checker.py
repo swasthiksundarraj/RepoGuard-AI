@@ -19,6 +19,7 @@ import re
 import uuid
 from typing import List
 
+from language_support import is_supported_source, language_for
 from models import AgentName, Finding, Severity, SourceFile
 
 # Rule IDs produced by other agents that correspond 1:1 to an explicit
@@ -68,7 +69,9 @@ class SpecificationChecker:
         forbidden_imports = set(self.spec.get("forbidden_imports", []))
 
         for source in files:
-            if not source.path.endswith(".py"):
+            if not is_supported_source(source.path):
+                continue
+            if language_for(source.path) != "python":
                 continue
             try:
                 tree = ast.parse(source.content, filename=source.path)

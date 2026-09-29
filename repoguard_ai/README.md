@@ -37,7 +37,21 @@ what your lecturer's "Result Analysis" step is for.
 
 ---
 
-## 2. Project structure
+## 2. Neuro-Symbolic Hybrid Gatekeeper
+
+The project implements the recommended hybrid strategy for secure remediation:
+
+1. Dual generation: both the deterministic AST/rule engine and the contextual neural refactoring engine generate a candidate remediation.
+2. Compiler verification pass: each candidate is checked for Python AST validity and re-scanned for residual security issues and static analysis smells.
+3. Automated multi-objective scoring: the gatekeeper scores each candidate using:
+   `Score = 100 - (25 × Residual CWEs) - (10 × Code Smells) + Readability Bonus`
+4. Autonomous selection: the higher-scoring valid candidate is chosen, with transparent reasoning in the dashboard; if the neural path fails syntax validation, the deterministic path is used as a safe fallback.
+
+This behavior is implemented in `backend/code_cleaner.py` and is surfaced in the UI’s remediation scorecard and strategy rationale.
+
+---
+
+## 3. Project structure
 
 ```
 repoguard_ai/
@@ -161,9 +175,11 @@ implementation:
 
 ## 5. Known scope limits (be upfront about these in your submission)
 
-- Static/Semantic/Security analysis currently targets **Python**
-  source files (`.py`); other languages are ingested but skipped by
-  the AST‑based agents. This is documented, not hidden.
+- Static/Semantic/Security analysis targets **Python**, **Java**, **C**,
+  and **C++** source files, with Python using the full AST-based check
+  and the C-family/Java files being analyzed through generic security
+  and style heuristics. This keeps the implementation usable beyond a
+  single-language demo while remaining deterministic and offline.
 - The Semantic Review Agent's heuristic mode is a stand‑in reasoning
   engine; the paper's full vision is realized when `ANTHROPIC_API_KEY`
   is configured (Section 3 above).

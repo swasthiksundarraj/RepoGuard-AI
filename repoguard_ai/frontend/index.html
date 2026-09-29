@@ -77,11 +77,70 @@
 
   <section class="results" id="results" hidden>
     <div class="results-main">
-      <div class="results-toolbar">
-        <div class="filter-group" id="agentFilters"></div>
-        <input type="search" id="searchBox" placeholder="Search findings…" />
+      <div class="view-tabs">
+        <button class="view-tab active" id="tabFindingsBtn">
+          <span>🔍 Analysis Findings</span>
+          <span class="tab-badge" id="tabFindingsBadge">0</span>
+        </button>
+        <button class="view-tab" id="tabCleanCodeBtn">
+          <span>✨ Auto-Remediated Clean Code</span>
+          <span class="tab-badge success" id="tabCleanBadge">Ready</span>
+        </button>
       </div>
-      <div class="findings-list" id="findingsList"></div>
+
+      <div id="findingsView">
+        <div class="results-toolbar">
+          <div class="filter-group" id="agentFilters"></div>
+          <input type="search" id="searchBox" placeholder="Search findings…" />
+        </div>
+        <div class="findings-list" id="findingsList"></div>
+      </div>
+
+      <div id="cleanCodeView" hidden>
+        <div class="clean-toolbar">
+          <div class="clean-file-tabs" id="cleanFileTabs"></div>
+          <div class="clean-toolbar-actions">
+            <button class="btn-sm" id="viewModeToggleBtn" title="Toggle between Side-by-Side and Clean view">Side-by-Side View</button>
+            <button class="btn-sm" id="copyCleanBtn">📋 Copy Clean Code</button>
+            <button class="btn-sm btn-primary-sm" id="downloadCleanBtn">💾 Download</button>
+          </div>
+        </div>
+
+        <div class="strategy-selector-bar">
+          <span class="strategy-label">Remediation Strategy:</span>
+          <div class="strategy-buttons" id="strategyButtons">
+            <button class="strat-btn active" id="stratBtnHybrid" data-strat="hybrid">
+              <span class="strat-icon">⭐</span>
+              <span class="strat-name">Best Way (Hybrid Neuro-Symbolic)</span>
+              <span class="strat-pill pill-best">Optimal</span>
+            </button>
+            <button class="strat-btn" id="stratBtnDet" data-strat="deterministic_ast">
+              <span class="strat-icon">⚡</span>
+              <span class="strat-name">Way 1 (Deterministic AST)</span>
+              <span class="strat-pill">Sub-ms</span>
+            </button>
+            <button class="strat-btn" id="stratBtnNeural" data-strat="neural_llm">
+              <span class="strat-icon">🧠</span>
+              <span class="strat-name">Way 2 (Contextual Neural)</span>
+              <span class="strat-pill">Typed</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="strategy-scorecard" id="strategyScorecard"></div>
+
+        <div class="clean-summary-bar" id="cleanSummaryBar">
+          <span class="clean-status-pill" id="cleanStatusPill">Remediated</span>
+          <span class="clean-file-path" id="cleanFilePath"></span>
+        </div>
+
+        <div class="clean-code-display" id="cleanCodeDisplay"></div>
+
+        <div class="remediation-box" id="remediationBox">
+          <h3>Applied Security &amp; Quality Remediations</h3>
+          <ul class="remediation-list" id="remediationList"></ul>
+        </div>
+      </div>
     </div>
 
     <aside class="results-rail">

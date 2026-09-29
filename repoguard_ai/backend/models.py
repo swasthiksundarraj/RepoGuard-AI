@@ -20,6 +20,7 @@ class AgentName(str, Enum):
     SEMANTIC = "semantic_review"
     SECURITY = "security_assessment"
     SPEC = "specification_checker"
+    TAINT = "taint_analysis"
 
 
 class Severity(int, Enum):
@@ -73,11 +74,36 @@ class Metrics(BaseModel):
     agent_timings: List[AgentTiming]
 
 
+class StrategyVariant(BaseModel):
+    name: str
+    label: str
+    cleaned_content: str
+    fixes_applied: List[str] = Field(default_factory=list)
+    remaining_issues: int = 0
+    execution_time_ms: float = 0.0
+    quality_score: int = 100
+    pros: List[str] = Field(default_factory=list)
+    cons: List[str] = Field(default_factory=list)
+
+
+class CleanedFile(BaseModel):
+    path: str
+    original_content: str
+    cleaned_content: str
+    fixes_applied: List[str] = Field(default_factory=list)
+    selected_strategy: str = "hybrid"
+    best_strategy_reason: str = ""
+    patch_diff: str = ""
+    variants: dict = Field(default_factory=dict)
+
+
 class AnalyzeRequest(BaseModel):
     files: List[SourceFile]
     alpha: float = 0.7
     beta: float = 0.3
     use_llm: bool = False
+    llm_provider: str = "offline"  # "offline", "anthropic", "ollama"
+    ollama_model: str = "deepseek-coder"
 
 
 class AnalyzeResponse(BaseModel):
@@ -85,3 +111,5 @@ class AnalyzeResponse(BaseModel):
     context: dict
     metrics: Metrics
     spec: dict
+    cleaned_files: List[CleanedFile] = Field(default_factory=list)
+
